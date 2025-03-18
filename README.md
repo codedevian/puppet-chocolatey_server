@@ -106,12 +106,33 @@ Host your own Chocolatey package repository
 
 #### Parameters
 
+##### `hostname`
+The hostname of which you want IIS to bind to.
+Defaults to blank.
+
 ##### `port`
-The port for the server website. Defaults to '80'.
+The port for the server website.
+Defaults to '80'.
+
+##### `protocol`
+The protocal for IIS to use.
+Defaults to 'http'.
+
+##### `tls_cert_thumbprint`
+The thumbprint of the certificate
+Defaults to undefined.
+
+##### `tls_cert_storename`
+The location in the certificate store where the certificate is stored.
+Defaults to 'My'.
 
 ##### `server_package_source`
 The Chocolatey source that contains the `chocolatey.server` package.
 Defaults to 'https://chocolatey.org/api/v2/'.
+
+##### `server_install_location`
+The location to that the chocolatey server will be installed. This is can be used if you are controlling the location that chocolatey packages are being installed via some other means. e.g. environment variable ChocolateyBinRoot.
+Defaults to 'C:\tools\chocolatey.server'
 
 ## Limitations
 

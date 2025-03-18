@@ -20,7 +20,14 @@
 #     server_package_source => 'c:/folder/containing/packages',
 #   }
 #
+# @param [String] hostname The hostname is blank by default so that IIS
+#   binds to all hostnames. Defaults to blank
 # @param [String] port The port for the server website. Defaults to '80'.
+# @param [String] protocol The protocal for IIS to use. Defaults to 'http'.
+# @param [String] tls_cert_thumbprint The thumbprint of the certificate. 
+#   Defaults to undefined.
+# @param [String] tls_cert_storename The location in the certificate store
+#   where the certificate is stored. Defaults to 'My'.
 # @param [String] server_package_source The chocolatey source that contains
 #   the `chocolatey.server` package. Defaults to
 #   'https://chocolatey.org/api/v2/'.
@@ -30,16 +37,24 @@
 #   means. e.g. environment variable ChocolateyBinRoot.  Defaults to
 #   'C:\tools\chocolatey.server'
 class chocolatey_server (
-  $port = $::chocolatey_server::params::service_port,
-  $server_package_source = $::chocolatey_server::params::server_package_source,
+  $hostname                = $::chocolatey_server::params::service_hostname,
+  $port                    = $::chocolatey_server::params::service_port,
+  $protocol                = $::chocolatey_server::params::service_protocol,
+  $tls_cert_thumbprint     = $::chocolatey_server::params::service_tls_cert_thumbprint,
+  $tls_cert_storename      = $::chocolatey_server::params::service_tls_cert_storename,
+  $server_package_source   = $::chocolatey_server::params::server_package_source,
   $server_install_location = $::chocolatey_server::params::server_install_location,
 ) inherits ::chocolatey_server::params {
   require chocolatey
 
-  $_chocolatey_server_location      = $server_install_location
-  $_chocolatey_server_app_pool_name = 'chocolateyserver'
-  $_chocolatey_server_app_port      = $port
-  $_server_package_url              = $server_package_source
+  $_chocolatey_server_app_pool_name            = 'chocolateyserver'
+  $_chocolatey_server_app_hostname             = $hostname
+  $_chocolatey_server_app_port                 = $port
+  $_chocolatey_server_app_protocol             = $protocol
+  $_chocolatey_server_app_tls_cert_thumbprint  = $tls_cert_thumbprint
+  $_chocolatey_server_app_tls_cert_storename   = $tls_cert_storename
+  $_server_package_url                         = $server_package_source
+  $_chocolatey_server_location                 = $server_install_location
   $_is_windows_2008 = $::kernelmajversion ? {
     '6.1'   => true,
     default => false
@@ -79,6 +94,26 @@ class chocolatey_server (
     require         => Iis_feature['Web-WebServer'],
   }
 
+  # iis bindings
+  if ($_chocolatey_server_app_protocol == 'https') {
+    $bindings = [
+      {
+        'bindinginformation' => "*:${_chocolatey_server_app_port}:${_chocolatey_server_app_hostname}",
+        'protocol'           => $_chocolatey_server_app_protocol,
+        'certificatehash'     => $_chocolatey_server_app_tls_cert_thumbprint,
+        'certificatestorename' => $_chocolatey_server_app_tls_cert_storename,
+        'sslflags' => 1
+      },
+    ]
+  } else {
+    $bindings = [
+      {
+        'bindinginformation' => "*:${_chocolatey_server_app_port}:${_chocolatey_server_app_hostname}",
+        'protocol'           => $_chocolatey_server_app_protocol,
+      },
+    ]
+  }
+
   # application in iis
   -> iis_application_pool { $_chocolatey_server_app_pool_name:
     ensure                    => 'present',
@@ -94,12 +129,7 @@ class chocolatey_server (
     physicalpath    => $_chocolatey_server_location,
     applicationpool => $_chocolatey_server_app_pool_name,
     preloadenabled  => true,
-    bindings        =>  [
-      {
-        'bindinginformation' => '*:80:',
-        'protocol'           => 'http'
-      }
-    ],
+    bindings        => $bindings,
     require         => Package['chocolatey.server'],
   }
 
